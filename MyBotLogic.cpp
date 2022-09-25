@@ -8,6 +8,7 @@
 #include "newFiles/Vertex.h"
 #include "newFiles/Path.h"
 #include "newFiles/AStar.h"
+#include "newFiles/DataNPC.h"
 
 #include <string>
 #include <algorithm>
@@ -22,9 +23,6 @@ MyBotLogic::MyBotLogic()
 {
 	//Write Code Here
 
-	std::map<int, Path> mapNpcPaths {};
-
-	std::vector<STileInfo> tileWithNPCOn {};
 }
 
 MyBotLogic::~MyBotLogic()
@@ -49,48 +47,24 @@ void MyBotLogic::Init(const SInitData& _initData)
 	
 	//Write Code Here
 
-	// Obtenir le graphe en partant de la case de départ du npc
-	//Graph* myGraph = new Graph(_initData, (*npc).getTileFromNPC(), mLogger);
-	Graph* myGraph = new Graph(_initData);
+	maxTurnNb = _initData.maxTurnNb;
 
-	vector<Vertex*> goalsPicked{};
-	
-	for (SNPCInfo* npc = _initData.npcInfoArray + 0; npc != _initData.npcInfoArray + _initData.nbNPCs; ++npc) {
-	 
-	 	BOT_LOGIC_LOG(mLogger, "npc numero : " + to_string(npc->uid), true);
-	 
-		
-		BOT_LOGIC_LOG(mLogger, "graph créét", true);
+	myGraph = Graph(_initData);
 
-		// Obtenir toutes les arrivées accessibles
-		vector<Vertex*> goals;
-		myGraph->getGoals(goals);
-		BOT_LOGIC_LOG(mLogger, "arrivées récupérées " + to_string(goals.size()), true);
-	 
-		// Classer les arrivées selon leur distance à la tuile départ
-		AStar::sortGoals(*npc, goals, goalsPicked, mLogger);
-		BOT_LOGIC_LOG(mLogger, "arrivées rangées, nb = " + to_string(goals.size()), true);
+	for (int i = 0; i < _initData.nbNPCs; ++i)
+	{
+		auto& npc = _initData.npcInfoArray[i];
 
-		for (auto goal = begin(goals); goal != end(goals); ++goal) {
-			try {
-				BOT_LOGIC_LOG(mLogger, "Goal picked : q = " + to_string((*goal)->myTile.q) + ", r = " + to_string((*goal)->myTile.r), true);
-				// Trouver le plus court chemin menant à l'arrivée précédemment choisie
-				Path way = AStar::shortestWay(*npc, **goal, *myGraph, _initData.maxTurnNb, mLogger);
+		STileInfo curr = npc.getTileFromNPC();
+		tileWithNPCOn.push_back(curr);
 
-				// Ajouter l'arrivée à la liste des arrivées déjà choisies
-				goalsPicked.push_back(*goal);
+		//DataNPC d = DataNPC(Path{}, Graph(_initData, curr));
+		DataNPC d = DataNPC(Path{});
 
-				// Associer le chemin au npc
-				mapNpcPaths[npc->uid] = way;
-				break;
-			}
-			catch (int e) {
-				continue;
-			}
-		}
+		d.firstNeighboors = myGraph.getVertexFromTile(curr).neighboors;
+
+		this->mapNpcDatas[npc.uid] = d;
 	}
-
-
 
 }
 
@@ -99,20 +73,6 @@ void MyBotLogic::GetTurnOrders(const STurnData& _turnData, std::list<SOrder>& _o
 	BOT_LOGIC_LOG(mLogger, "GetTurnOrders", true);
 
 	struct utils {
-
-		//	Fonction : initTileOccupied
-		//
-		//	Initialise la liste des Tiles avec la position courante de tous les npc
-		//
-		static vector<STileInfo> initTileOccupied(const STurnData& _turnData, Logger& mLogger) {
-			vector<STileInfo> tiles{};
-
-			auto lambda = [&tiles,&mLogger](SNPCInfo npc) {BOT_LOGIC_LOG(mLogger, "q = " + to_string(npc.q) + ", r =" + to_string(npc.r), true);
-				tiles.push_back(npc.getTileFromNPC()); };
-			std::for_each(_turnData.npcInfoArray + 0, _turnData.npcInfoArray + _turnData.npcInfoArraySize, lambda);
-
-			return tiles;
-		}
 
 		//	Fonction : getOrderMove
 		//
@@ -132,48 +92,181 @@ void MyBotLogic::GetTurnOrders(const STurnData& _turnData, std::list<SOrder>& _o
 		//
 		//	Ajoute un ordre d'action dans liste pour chaque npc
 		//
-		static void addOrder(const SNPCInfo& npc, vector<STileInfo>& tileWithNPCOn, map<int, Path>& mapNpcWays, list<SOrder>& _orders, Logger& mLogger) {
+		static void addOrder(const SNPCInfo& npc, vector<STileInfo>& tileWithNPCOn, Path& way, list<SOrder>& _orders, Logger& mLogger) {
 			BOT_LOGIC_LOG(mLogger, "addOrder", true);
-			Path way = mapNpcWays[npc.uid];
 
-			if (way.state != Path::TERMINE) {
-				STileInfo current = npc.getTileFromNPC();
-				STileInfo next = way.way.front()->myTile;
+			for_each(begin(tileWithNPCOn), end(tileWithNPCOn),
+				[&mLogger](STileInfo tile) {BOT_LOGIC_LOG(mLogger, "tile with npc on q = " + to_string(tile.q) + ", r = " + to_string(tile.r), true); });
 
-				BOT_LOGIC_LOG(mLogger, "next q = " + to_string(next.q) + ", r =" + to_string(next.r), true);
+			
+			STileInfo current = npc.getTileFromNPC();
+			STileInfo next = way.way.front().myTile;
 
-				int t = static_cast<int>(find(begin(tileWithNPCOn), end(tileWithNPCOn), next) - end(tileWithNPCOn));
-				BOT_LOGIC_LOG(mLogger, "distance à la fin : " + to_string(t), true);
+			BOT_LOGIC_LOG(mLogger, "next q = " + to_string(next.q) + ", r =" + to_string(next.r), true);
 				
-				// Aucun npc n'est déjà présent sur la case
-				if (find(begin(tileWithNPCOn), end(tileWithNPCOn), next) == end(tileWithNPCOn)) {
-					BOT_LOGIC_LOG(mLogger, "ncp libre", true);
-					SOrder order = getOrderMove(npc.uid, current, next, _orders, mLogger);
+			// Aucun npc n'est déjà présent sur la case
+			if (find(begin(tileWithNPCOn), end(tileWithNPCOn), next) == end(tileWithNPCOn)) {
+				SOrder order = getOrderMove(npc.uid, current, next, _orders, mLogger);
 
-					_orders.push_back(order);
-					tileWithNPCOn.push_back(next);
+				_orders.push_back(order);
+				tileWithNPCOn.push_back(next);
 
-					way.way.pop_front();
+				way.way.pop_front();
 		
-					if (way.way.size() == 0)
+				// Changer l'état du chemin / npc s'il y a lieu
+				if (way.way.size() == 0) {
+					BOT_LOGIC_LOG(mLogger, "way of npc number : " + to_string(npc.uid) + " is ended", true);
+					BOT_LOGIC_LOG(mLogger, "last tile is : q = " + to_string(next.q) + ", r = " + to_string(next.r), true);
+					if (next.type == Goal)
 						way.state = Path::TERMINE;
-					mapNpcWays[npc.uid] = way;
-					tileWithNPCOn.erase(find(begin(tileWithNPCOn), end(tileWithNPCOn), current));
+					else
+						way.state = Path::INDECIS;
 				}
+						
+
+				tileWithNPCOn.erase(find(begin(tileWithNPCOn), end(tileWithNPCOn), current));
 			}
 		}
 	};
 
 	//Write Code Here
 
-	BOT_LOGIC_LOG(mLogger, "initTileOccupied", true);
-	this->tileWithNPCOn = utils::initTileOccupied(_turnData, mLogger);
-	BOT_LOGIC_LOG(mLogger, "for_each", true);
-
-	/*auto lambda = [&tileWithNPCOn, &_orders](SNPCInfo npc) {utils::addOrder(npc, tileWithNPCOn, _orders); };
-	std::for_each(_turnData.npcInfoArray + 0, _turnData.npcInfoArray + _turnData.npcInfoArraySize, lambda);*/
-	for (auto p = _turnData.npcInfoArray + 0; p != _turnData.npcInfoArray + _turnData.npcInfoArraySize; ++p) {
-		utils::addOrder(*p, tileWithNPCOn, this->mapNpcPaths, _orders, mLogger);
-	}
 	
+
+	for (int i = 0; i < _turnData.npcInfoArraySize; ++i) {
+		SNPCInfo& npc = _turnData.npcInfoArray[i];
+
+		Path& path = mapNpcDatas[npc.uid].myPath;
+		Graph& graph = myGraph;
+		vector<Vertex>& firstN = mapNpcDatas[npc.uid].firstNeighboors;
+		//vector<Vertex>& nextN = mapNpcDatas[npc.uid].nextNeighboors;
+		vector<Vertex>& nextN = toVisit;
+		vector<Vertex>& alreadyV = alreadyVisited;
+		STileInfo curr = npc.getTileFromNPC();
+		vector<Vertex> goals;
+
+		if (path.state != Path::TERMINE) {
+
+			alreadyV.push_back(graph.getVertexFromTile(curr));
+			// Retirer le voisin de liste des voisins inexplorés
+			auto pos = find(begin(nextN), end(nextN), graph.getVertexFromTile(curr));
+			if (pos != end(nextN)) {
+				nextN.erase(pos);
+			}
+			
+
+			BOT_LOGIC_LOG(mLogger, "npc " + to_string(npc.uid) + " is looking for his path ", true);
+
+			if (path.state != Path::NON_DEMARRE) {
+				BOT_LOGIC_LOG(mLogger, "npc " + to_string(npc.uid) + " is updating", true);
+				// Mettre à jour le graph
+				graph.update(_turnData);
+
+				// Ajouter les nouveaux voisins à la liste
+				BOT_LOGIC_LOG(mLogger, "nombre already = " + to_string(alreadyV.size()), true);
+				for_each(begin(alreadyV), end(alreadyV),
+					[&](Vertex tile) {BOT_LOGIC_LOG(mLogger, "already present q = " + to_string(tile.myTile.q) + ", r = " + to_string(tile.myTile.r), true); });
+				for (int i = 0; i < graph.getVertexFromTile(curr).neighboors.size(); ++i) {
+					Vertex v = graph.getVertexFromTile(curr).neighboors[i];
+					if (find_if(begin(nextN), end(nextN), [&v](Vertex vbis) { return v.myTile == vbis.myTile; }) == end(nextN) &&
+							find(begin(alreadyV), end(alreadyV), v) == end(alreadyV)) {
+						BOT_LOGIC_LOG(mLogger, "On ajoutea : q = " + to_string(v.myTile.q) + ", r = " + to_string(v.myTile.r), true);
+						nextN.push_back(v);
+					}
+				}
+			}
+
+			// Si le npc n'a pas de chemin à suivre
+			if (path.state != Path::EN_COURS || !path.lastVertex().myTile.type == Goal) {
+				BOT_LOGIC_LOG(mLogger, "npc " + to_string(npc.uid) + " is lost so he looks for a way", true);
+
+				graph.getGoals(goals);
+
+				// Il y a une arrivée dans le graphe
+				if (!goals.empty()) {
+					// A* normal
+					AStar::findBestPath(path, npc, goals, goalsPicked, graph, maxTurnNb - _turnData.turnNb + 1, mLogger);
+
+					if (path.way.empty() && path.state != Path::EN_COURS)
+						path.state = Path::INDECIS;
+				}
+				else if (path.state != Path::EN_COURS)
+					path.state = Path::INDECIS;
+			}
+
+
+			if (path.state == Path::EN_COURS) {
+				BOT_LOGIC_LOG(mLogger, "npc " + to_string(npc.uid) + " follows his path", true);
+				utils::addOrder(npc, tileWithNPCOn, path, _orders, mLogger);
+			}
+			// Si le npc est indécis, il faut lui trouver une destination
+			else if (path.state == Path::INDECIS) {
+				// S'il n'a pas visité tous ses premiers voisins, il le fait
+				if (!firstN.empty()) {
+					BOT_LOGIC_LOG(mLogger, "npc " + to_string(npc.uid) + " explores his closest neighboors", true);
+					// Trouver le chemin pour aller au voisin
+					if (find(begin(tileWithNPCOn), end(tileWithNPCOn), firstN.back().myTile) == end(tileWithNPCOn)) {
+						Path way = AStar::shortestWay(npc, firstN.back(), graph, maxTurnNb - _turnData.turnNb + 1, mLogger);
+
+						// Associer le chemin au npc
+						path = way;
+						path.state = Path::EN_COURS;
+
+						// Retirer le voisin de liste des voisins inexplorés
+						alreadyV.push_back(firstN.back());
+						firstN.pop_back();
+					}
+					else {
+						if (find(begin(goalsPicked), end(goalsPicked), firstN.back()) != end(goalsPicked))
+							firstN.pop_back();
+					}
+					
+				}
+				// Sinon il se déplace vers un autre voisin le plus proche
+				else {
+					vector<Path> ways;
+					for (auto neihb = begin(nextN); neihb != end(nextN); ++neihb) {
+						if (find(begin(tileWithNPCOn), end(tileWithNPCOn), neihb->myTile) == end(tileWithNPCOn)) {
+							try {
+								BOT_LOGIC_LOG(mLogger, "neihb picked : q = " + to_string((*neihb).myTile.q) + ", r = " + to_string((*neihb).myTile.r), true);
+								// Trouver le plus court chemin menant au voisin précédemment choisi
+								Path way = AStar::shortestWay(npc, *neihb, graph, maxTurnNb - _turnData.turnNb + 1, mLogger);
+
+								// Associer le chemin au npc
+								way.state = Path::EN_COURS;
+								ways.push_back(way);
+								/*path = way;
+								break;*/
+							}
+							catch (int e) {
+								continue;
+							}
+						}
+						else BOT_LOGIC_LOG(mLogger, "il y a deja quelqu'un : q = " + to_string(neihb->myTile.q) + ", r = " + to_string(neihb->myTile.r), true);
+					}
+					
+					// Prendre le plus court chemin
+					int size = -1;
+					BOT_LOGIC_LOG(mLogger, "nombre de chemin " + to_string(ways.size()), true);
+					for (auto p = begin(ways); p != end(ways); ++p) {
+						BOT_LOGIC_LOG(mLogger, "taille du chemin " + to_string(p->way.size()), true);
+						if (size == -1 || p->way.size() <= size) {
+							BOT_LOGIC_LOG(mLogger, "c'est un bon chemin", true);
+							size = p->way.size();
+							path = *p;
+						}
+					}
+
+				}
+
+				if (path.way.empty())
+					path.state = Path::INDECIS;
+				else
+					// Puis s'y déplacer
+					utils::addOrder(npc, tileWithNPCOn, path, _orders, mLogger);
+			}
+
+		}
+	}
+	BOT_LOGIC_LOG(mLogger, "fin GetTurnOrder", true);
 }

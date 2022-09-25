@@ -3,6 +3,8 @@
 #include "BotLogicIF.h"
 #include "Logger.h"
 #include "newFiles/Path.h"
+#include "newFiles/DataNPC.h"
+#include "newFiles/Graph.h"
 
 #include <map>
 #include <list>
@@ -36,8 +38,19 @@ protected:
 	Logger mLogger;
 
 	// Map de clef uid npc, et valeur un chemin de type SWay
-	std::map<int, Path> mapNpcPaths;
+	std::map<int, DataNPC> mapNpcDatas;
+
+	Graph myGraph;
 
 	// Vecteur contenant la position des NPC à tout instant
 	std::vector<STileInfo> tileWithNPCOn;
+
+	// Liste des arrivées déjà choisies
+	std::vector<Vertex> goalsPicked;
+
+	std::vector<Vertex> alreadyVisited;
+
+	std::vector<Vertex> toVisit;
+
+	int maxTurnNb;
 };

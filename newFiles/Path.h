@@ -4,11 +4,18 @@
 
 class Path {
 public:
-	enum State { TERMINE, NON_DEMARRE, EN_COURS };
+	enum State { TERMINE, NON_DEMARRE, EN_COURS, INDECIS };
 
-	std::list<Vertex*> way;
+	std::list<Vertex> way{};
 
 	State state{ NON_DEMARRE };
+
+
+	Path& operator=(const Path& way) {
+		this->state = way.state;
+		this->way = way.way;
+		return *this;
+	}
 
 	//	Fonction : operator==
 	//
@@ -31,7 +38,7 @@ public:
 	//
 	//	Retourne le dernier vertex de la liste
 	//
-	Vertex* lastVertex() {
+	Vertex lastVertex() {
 		return this->way.back();
 	}
 };

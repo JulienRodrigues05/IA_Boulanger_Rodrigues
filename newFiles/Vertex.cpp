@@ -34,3 +34,12 @@ bool Vertex::isNeighboor(const Vertex& v, const SObjectInfo* objectInfoArray, co
 
 	return neighboor && !obstructed;
 }
+
+Vertex& Vertex::operator=(const Vertex& v) {
+	this->myTile = v.myTile;
+	this->neighboors = v.neighboors;
+	return *this;
+}
+
+Vertex::Vertex(const Vertex& v) : myTile(v.myTile), neighboors(v.neighboors) {
+}
