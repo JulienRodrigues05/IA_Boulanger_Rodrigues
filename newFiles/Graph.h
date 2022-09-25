@@ -22,7 +22,7 @@ public:
 
 	Vertex getVertexFromTile(const STileInfo&) const;
 
-	void update(const STurnData&);
+	void update(const STurnData&, const std::vector<Vertex>);
 
 private:
 	void keepNonVisited(std::vector<Vertex>&);

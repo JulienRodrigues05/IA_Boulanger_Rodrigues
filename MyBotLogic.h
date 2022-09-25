@@ -40,7 +40,7 @@ protected:
 	// Map de clef uid npc, et valeur un chemin de type SWay
 	std::map<int, DataNPC> mapNpcDatas;
 
-	Graph myGraph;
+	//Graph myGraph;
 
 	// Vecteur contenant la position des NPC à tout instant
 	std::vector<STileInfo> tileWithNPCOn;
@@ -48,9 +48,9 @@ protected:
 	// Liste des arrivées déjà choisies
 	std::vector<Vertex> goalsPicked;
 
-	std::vector<Vertex> alreadyVisited;
+	//std::vector<Vertex> alreadyVisited;
 
-	std::vector<Vertex> toVisit;
+	//std::vector<Vertex> toVisit;
 
 	int maxTurnNb;
 };

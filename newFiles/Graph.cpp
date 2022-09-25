@@ -150,14 +150,14 @@ void Graph::getGoals(std::vector<Vertex>& goals) const {
 //
 Vertex Graph::getVertexFromTile(const STileInfo& tile) const {
 	auto pos = std::find_if(begin(this->vertex), end(this->vertex), [&tile](Vertex v) { return v.myTile == tile; });
-	return *pos;
+	return this->vertex[pos - begin(this->vertex)];
 }
 
 //	Fonction : update
 //
 //	Met à jour le graph avec de nouvelles données
 //
-void Graph::update(const STurnData& _turnData) {
+void Graph::update(const STurnData& _turnData, const std::vector<Vertex> alreadyVisited) {
 	// Ajouter de nouvelles tuiles
 	for (int i = 0; i < _turnData.tileInfoArraySize; ++i) {
 		STileInfo& tile = _turnData.tileInfoArray[i];
@@ -170,7 +170,8 @@ void Graph::update(const STurnData& _turnData) {
 
 				// Associer ce sommet à tous ces voisins déjà présents dans le vecteur de sommet
 				for (auto v2 = begin(this->vertex); v2 != end(this->vertex); ++v2) {
-					if (v2->isNeighboor(v1, _turnData.objectInfoArray, _turnData.objectInfoArraySize)) {
+					if (v2->isNeighboor(v1, _turnData.objectInfoArray, _turnData.objectInfoArraySize) && 
+							find(begin(alreadyVisited), end(alreadyVisited), *v2) == end(alreadyVisited)) {
 						v2->neighboors.push_back(v1);
 						v1.neighboors.push_back(*v2);
 					}

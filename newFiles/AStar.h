@@ -58,8 +58,6 @@ public:
 		STileInfo tile = npc.getTileFromNPC();
 
 		// Trouver les voisins de la case de départ
-		myGraph.getVertexFromTile(tile);
-
 		vector<Vertex> voisins = myGraph.getVertexFromTile(tile).neighboors;
 
 		// Ranger les chemins dans openWays
